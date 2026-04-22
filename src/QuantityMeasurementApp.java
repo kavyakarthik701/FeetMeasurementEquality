@@ -1,6 +1,7 @@
 package com.apps.quantitymeasurement;
 
-import java.util.Objects;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * UC6 - QuantityMeasurementApp: Addition Operations Between Lengths
@@ -13,7 +14,10 @@ public class QuantityMeasurementApp {
 
     public static class Length {
         private final double value;
-        private final LengthUnit unit;
+
+        public Feet(double value) {
+            this.value = value;
+        }
 
         public enum LengthUnit {
             FEET(12.0),
@@ -23,18 +27,24 @@ public class QuantityMeasurementApp {
 
             private final double conversionFactor;
 
-            LengthUnit(double conversionFactor) {
-                this.conversionFactor = conversionFactor;
-            }
+            // 2. Null Check and 3. Type Check
+            if (obj == null || getClass() != obj.getClass()) return false;
 
-            public double getConversionFactor() {
-                return conversionFactor;
-            }
+            // 4. Value Comparison (casting obj to Feet)
+            Feet feet = (Feet) obj;
+            return Double.compare(feet.value, value) == 0;
         }
+    }
 
-        public Length(double value, LengthUnit unit) {
-            this.value = value;
-            this.unit = unit;
+    // --- JUNIT TEST CASES (Consolidated from the second image) ---
+
+    public static class QuantityMeasurementAppTest {
+
+        @Test
+        public void testFeetEquality_SameValue() {
+            Feet f1 = new Feet(0.0);
+            Feet f2 = new Feet(0.0);
+            assertEquals(f1, f2, "Two Feet objects with the same value should be equal.");
         }
 
         /**
@@ -77,13 +87,12 @@ public class QuantityMeasurementApp {
             return String.format("%.2f %s", value, unit);
         }
 
-        @Override
-        public int hashCode() {
-            return Objects.hash(value, unit);
+        @Test
+        public void testFeetEquality_SameReference() {
+            Feet f1 = new Feet(0.0);
+            assertEquals(f1, f1, "An object should be equal to its own reference.");
         }
     }
-
-    // --- DEMONSTRATION METHODS ---
 
     /**
      * Demonstrates addition of two lengths.
