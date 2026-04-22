@@ -1,141 +1,93 @@
 package com.apps.quantitymeasurement;
 
-import java.util.Objects;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * UC5 - QuantityMeasurementApp: Extended Unit Support with Conversion
- * This class provides unit-to-unit conversion within the length category.
- * It builds on UC4 by adding explicit conversion logic (convertTo).
+ * QuantityMeasurementApp - UC1: Feet measurement equality
+ * This class handles the logic for representing feet and checking equality.
  */
 public class QuantityMeasurementApp {
 
-    // --- REFACTORED LENGTH CLASS WITH CONVERSION ---
-
-    public static class Length {
+    /**
+     * Inner class to represent Feet measurement.
+     * Encapsulates a double value and overrides equals for comparison.
+     */
+    public static class Feet {
         private final double value;
-        private final LengthUnit unit;
 
-        /**
-         * Nested enumeration representing different length units and their factors.
-         * Base unit for conversion is inches.
-         */
-        public enum LengthUnit {
-            FEET(12.0),
-            INCHES(1.0),
-            YARDS(36.0),
-            CENTIMETERS(0.453701); // Factor from your previous UC snippet
-
-            private final double conversionFactor;
-
-            LengthUnit(double conversionFactor) {
-                this.conversionFactor = conversionFactor;
-            }
-
-            public double getConversionFactor() {
-                return conversionFactor;
-            }
-        }
-
-        public Length(double value, LengthUnit unit) {
+        public Feet(double value) {
             this.value = value;
-            this.unit = unit;
         }
 
         /**
-         * Private Utility Method: Converts length to base unit (inches) with rounding.
-         * Ensures consistent rounding to two decimal places.
-         */
-        private double convertToBaseUnit() {
-            double inches = value * unit.getConversionFactor();
-            return Math.round(inches * 100.0) / 100.0;
-        }
-
-        /**
-         * Private Helper Method: Core comparison logic.
-         */
-        private boolean compare(Length thatLength) {
-            if (thatLength == null) return false;
-            return Double.compare(this.convertToBaseUnit(), thatLength.convertToBaseUnit()) == 0;
-        }
-
-        /**
-         * Overridden Equals: Implements reference, type, and value-based checks.
+         * Overrides equals() method to compare two Feet objects.
+         * Logic follows these steps:
+         * 1. Reference Check: Same memory address?
+         * 2. Null Check: Is the other object null?
+         * 3. Type Check: Is the other object a Feet instance?
+         * 4. Value Comparison: Do the primitive values match?
          */
         @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Length length = (Length) o;
-            return this.compare(length);
-        }
+        public boolean equals(Object obj) {
+            // 1. Reference Check
+            if (this == obj) return true;
 
-        /**
-         * Public API Method: Provides the primary interface for unit conversion.
-         * Pipeline: Instance -> Base Unit (Inches) -> Target Unit -> Rounded Result.
-         */
-        public Length convertTo(LengthUnit targetUnit) {
-            if (targetUnit == null) {
-                throw new IllegalArgumentException("Target unit cannot be null");
-            }
-            // 1. Convert this instance to inches
-            double inches = value * unit.getConversionFactor();
-            // 2. Convert from inches to target unit
-            double convertedValue = inches / targetUnit.getConversionFactor();
-            // 3. Round to two decimal places
-            double roundedValue = Math.round(convertedValue * 100.0) / 100.0;
-            
-            return new Length(roundedValue, targetUnit);
-        }
+            // 2. Null Check and 3. Type Check
+            if (obj == null || getClass() != obj.getClass()) return false;
 
-        @Override
-        public String toString() {
-            return String.format("%.2f %s", value, unit);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(value, unit);
+            // 4. Value Comparison (casting obj to Feet)
+            Feet feet = (Feet) obj;
+            return Double.compare(feet.value, value) == 0;
         }
     }
 
-    // --- DEMONSTRATION METHODS ---
+    // --- JUNIT TEST CASES (Consolidated from the second image) ---
 
-    public static boolean demonstrateLengthEquality(Length length1, Length length2) {
-        return length1.equals(length2);
+    public static class QuantityMeasurementAppTest {
+
+        @Test
+        public void testFeetEquality_SameValue() {
+            Feet f1 = new Feet(0.0);
+            Feet f2 = new Feet(0.0);
+            assertEquals(f1, f2, "Two Feet objects with the same value should be equal.");
+        }
+
+        @Test
+        public void testFeetEquality_DifferentValue() {
+            Feet f1 = new Feet(0.0);
+            Feet f2 = new Feet(1.0);
+            assertNotEquals(f1, f2, "Two Feet objects with different values should not be equal.");
+        }
+
+        @Test
+        public void testFeetEquality_NullComparison() {
+            Feet f1 = new Feet(0.0);
+            assertNotEquals(null, f1, "A Feet object should not be equal to null.");
+        }
+
+        @Test
+        public void testFeetEquality_DifferentClass() {
+            Feet f1 = new Feet(0.0);
+            Object obj = new Object();
+            assertNotEquals(f1, obj, "A Feet object should not be equal to an object of a different class.");
+        }
+
+        @Test
+        public void testFeetEquality_SameReference() {
+            Feet f1 = new Feet(0.0);
+            assertEquals(f1, f1, "An object should be equal to its own reference.");
+        }
     }
 
     /**
-     * Demonstrates length conversion from one unit to another.
+     * Main method to demonstrate Feet equality check manually.
      */
-    public static Length demonstrateLengthConversion(double value, Length.LengthUnit fromUnit, Length.LengthUnit toUnit) {
-        Length length = new Length(value, fromUnit);
-        return length.convertTo(toUnit);
-    }
-
-    /**
-     * Method Overloading: Demonstrates conversion from an existing Length instance.
-     */
-    public static Length demonstrateLengthConversion(Length length, Length.LengthUnit toUnit) {
-        return length.convertTo(toUnit);
-    }
-
-    // --- MAIN METHOD ---
-
     public static void main(String[] args) {
-        System.out.println("=== UC5: Extended Unit Support with Conversion ===\n");
+        Feet feet1 = new Feet(1.0);
+        Feet feet2 = new Feet(1.0);
 
-        // 1. Demonstrate Conversion: 3 Feet to Inches
-        Length threeFeet = new Length(3.0, Length.LengthUnit.FEET);
-        Length convertedInches = threeFeet.convertTo(Length.LengthUnit.INCHES);
-        System.out.println("Conversion: " + threeFeet + " => " + convertedInches); // Expected: 36.00 INCHES
-
-        // 2. Demonstrate Conversion: 2 Yards to Inches
-        Length twoYards = new Length(2.0, Length.LengthUnit.YARDS);
-        System.out.println("Conversion: " + twoYards + " => " + twoYards.convertTo(Length.LengthUnit.INCHES)); // Expected: 72.00 INCHES
-
-        // 3. Demonstrate Equality after Conversion
-        Length oneFoot = new Length(1.0, Length.LengthUnit.FEET);
-        Length twelveInches = new Length(12.0, Length.LengthUnit.INCHES);
-        System.out.println("\nEquality Check (1ft vs 12in): " + oneFoot.equals(twelveInches));
+        System.out.println("Checking equality for 1.0 feet and 1.0 feet...");
+        System.out.println("Result: " + feet1.equals(feet2));
     }
 }
