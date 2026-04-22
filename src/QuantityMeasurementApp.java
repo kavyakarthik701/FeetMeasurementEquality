@@ -3,30 +3,27 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * QuantityMeasurementAppUC4 - Extended Unit Support
- * This version adds support for Yards and Centimeters while maintaining 
- * the DRY principle and backward compatibility with UC3.
+ * UC5 - QuantityMeasurementApp: Extended Unit Support with Conversion
+ * This class provides unit-to-unit conversion within the length category.
+ * It builds on UC4 by adding explicit conversion logic (convertTo).
  */
 public class QuantityMeasurementApp {
 
-    // --- EXTENDED LENGTH CLASS ---
+    // --- REFACTORED LENGTH CLASS WITH CONVERSION ---
 
     public static class Length {
         private final double value;
         private final LengthUnit unit;
 
         /**
-         * Enum representing length units with conversion factors relative to Inches.
-         * FEET = 12 inches
-         * INCHES = 1 inch
-         * YARDS = 36 inches
-         * CENTIMETERS = 0.393701 inches
+         * Nested enumeration representing different length units and their factors.
+         * Base unit for conversion is inches.
          */
         public enum LengthUnit {
             FEET(12.0),
             INCHES(1.0),
             YARDS(36.0),
-            CENTIMETERS(0.393701);
+            CENTIMETERS(0.453701); // Factor from your previous UC snippet
 
             private final double conversionFactor;
 
@@ -45,28 +42,54 @@ public class QuantityMeasurementApp {
         }
 
         /**
-         * Converts value to base unit (inches) and rounds to 2 decimal places 
-         * to handle floating-point precision issues in comparisons.
+         * Private Utility Method: Converts length to base unit (inches) with rounding.
+         * Ensures consistent rounding to two decimal places.
          */
         private double convertToBaseUnit() {
-            double rawValue = value * unit.getConversionFactor();
-            return Math.round(rawValue * 100.0) / 100.0;
+            double inches = value * unit.getConversionFactor();
+            return Math.round(inches * 100.0) / 100.0;
         }
 
         /**
-         * Compares two Length objects based on their base unit values.
+         * Private Helper Method: Core comparison logic.
          */
-        public boolean compare(Length thatLength) {
+        private boolean compare(Length thatLength) {
             if (thatLength == null) return false;
             return Double.compare(this.convertToBaseUnit(), thatLength.convertToBaseUnit()) == 0;
         }
 
+        /**
+         * Overridden Equals: Implements reference, type, and value-based checks.
+         */
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             Length length = (Length) o;
             return this.compare(length);
+        }
+
+        /**
+         * Public API Method: Provides the primary interface for unit conversion.
+         * Pipeline: Instance -> Base Unit (Inches) -> Target Unit -> Rounded Result.
+         */
+        public Length convertTo(LengthUnit targetUnit) {
+            if (targetUnit == null) {
+                throw new IllegalArgumentException("Target unit cannot be null");
+            }
+            // 1. Convert this instance to inches
+            double inches = value * unit.getConversionFactor();
+            // 2. Convert from inches to target unit
+            double convertedValue = inches / targetUnit.getConversionFactor();
+            // 3. Round to two decimal places
+            double roundedValue = Math.round(convertedValue * 100.0) / 100.0;
+            
+            return new Length(roundedValue, targetUnit);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%.2f %s", value, unit);
         }
 
         @Override
@@ -77,37 +100,42 @@ public class QuantityMeasurementApp {
 
     // --- DEMONSTRATION METHODS ---
 
+    public static boolean demonstrateLengthEquality(Length length1, Length length2) {
+        return length1.equals(length2);
+    }
+
     /**
-     * Demonstrates comparison between two values and prints the result.
+     * Demonstrates length conversion from one unit to another.
      */
-    public static boolean demonstrateLengthComparison(double val1, Length.LengthUnit unit1, 
-                                                     double val2, Length.LengthUnit unit2) {
-        Length length1 = new Length(val1, unit1);
-        Length length2 = new Length(val2, unit2);
-        boolean isEqual = length1.equals(length2);
-        
-        System.out.println(val1 + " " + unit1 + " == " + val2 + " " + unit2 + " is: " + isEqual);
-        return isEqual;
+    public static Length demonstrateLengthConversion(double value, Length.LengthUnit fromUnit, Length.LengthUnit toUnit) {
+        Length length = new Length(value, fromUnit);
+        return length.convertTo(toUnit);
+    }
+
+    /**
+     * Method Overloading: Demonstrates conversion from an existing Length instance.
+     */
+    public static Length demonstrateLengthConversion(Length length, Length.LengthUnit toUnit) {
+        return length.convertTo(toUnit);
     }
 
     // --- MAIN METHOD ---
 
     public static void main(String[] args) {
-        System.out.println("=== UC4: Extended Unit Support (Feet, Inches, Yards, CM) ===\n");
+        System.out.println("=== UC5: Extended Unit Support with Conversion ===\n");
 
-        // 1. Feet and Inches Comparison
-        demonstrateLengthComparison(1.0, Length.LengthUnit.FEET, 12.0, Length.LengthUnit.INCHES);
+        // 1. Demonstrate Conversion: 3 Feet to Inches
+        Length threeFeet = new Length(3.0, Length.LengthUnit.FEET);
+        Length convertedInches = threeFeet.convertTo(Length.LengthUnit.INCHES);
+        System.out.println("Conversion: " + threeFeet + " => " + convertedInches); // Expected: 36.00 INCHES
 
-        // 2. Yards and Inches Comparison
-        demonstrateLengthComparison(1.0, Length.LengthUnit.YARDS, 36.0, Length.LengthUnit.INCHES);
+        // 2. Demonstrate Conversion: 2 Yards to Inches
+        Length twoYards = new Length(2.0, Length.LengthUnit.YARDS);
+        System.out.println("Conversion: " + twoYards + " => " + twoYards.convertTo(Length.LengthUnit.INCHES)); // Expected: 72.00 INCHES
 
-        // 3. Centimeters and Inches Comparison
-        demonstrateLengthComparison(100.0, Length.LengthUnit.CENTIMETERS, 39.3701, Length.LengthUnit.INCHES);
-
-        // 4. Feet and Yards Comparison
-        demonstrateLengthComparison(3.0, Length.LengthUnit.FEET, 1.0, Length.LengthUnit.YARDS);
-
-        // 5. Centimeters and Feet Comparison
-        demonstrateLengthComparison(30.48, Length.LengthUnit.CENTIMETERS, 1.0, Length.LengthUnit.FEET);
+        // 3. Demonstrate Equality after Conversion
+        Length oneFoot = new Length(1.0, Length.LengthUnit.FEET);
+        Length twelveInches = new Length(12.0, Length.LengthUnit.INCHES);
+        System.out.println("\nEquality Check (1ft vs 12in): " + oneFoot.equals(twelveInches));
     }
 }
