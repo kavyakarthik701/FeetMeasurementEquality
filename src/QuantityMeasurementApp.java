@@ -4,34 +4,28 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * QuantityMeasurementApp - UC1: Feet measurement equality
- * This class handles the logic for representing feet and checking equality.
+ * UC6 - QuantityMeasurementApp: Addition Operations Between Lengths
+ * This version allows adding two Length objects of the same category.
+ * The result is returned in the unit of the first operand.
  */
 public class QuantityMeasurementApp {
 
-    /**
-     * Inner class to represent Feet measurement.
-     * Encapsulates a double value and overrides equals for comparison.
-     */
-    public static class Feet {
+    // --- REFACTORED LENGTH CLASS WITH ADDITION ---
+
+    public static class Length {
         private final double value;
 
         public Feet(double value) {
             this.value = value;
         }
 
-        /**
-         * Overrides equals() method to compare two Feet objects.
-         * Logic follows these steps:
-         * 1. Reference Check: Same memory address?
-         * 2. Null Check: Is the other object null?
-         * 3. Type Check: Is the other object a Feet instance?
-         * 4. Value Comparison: Do the primitive values match?
-         */
-        @Override
-        public boolean equals(Object obj) {
-            // 1. Reference Check
-            if (this == obj) return true;
+        public enum LengthUnit {
+            FEET(12.0),
+            INCHES(1.0),
+            YARDS(36.0),
+            CENTIMETERS(0.453701);
+
+            private final double conversionFactor;
 
             // 2. Null Check and 3. Type Check
             if (obj == null || getClass() != obj.getClass()) return false;
@@ -53,24 +47,44 @@ public class QuantityMeasurementApp {
             assertEquals(f1, f2, "Two Feet objects with the same value should be equal.");
         }
 
-        @Test
-        public void testFeetEquality_DifferentValue() {
-            Feet f1 = new Feet(0.0);
-            Feet f2 = new Feet(1.0);
-            assertNotEquals(f1, f2, "Two Feet objects with different values should not be equal.");
+        /**
+         * Converts current length to inches (base unit).
+         */
+        private double convertToBaseUnit() {
+            return value * unit.getConversionFactor();
         }
 
-        @Test
-        public void testFeetEquality_NullComparison() {
-            Feet f1 = new Feet(0.0);
-            assertNotEquals(null, f1, "A Feet object should not be equal to null.");
+        /**
+         * UC6 Helper: Converts an inch value back to a specific target unit.
+         */
+        private double convertFromBaseToTargetUnit(double lengthInInches, LengthUnit targetUnit) {
+            double convertedValue = lengthInInches / targetUnit.getConversionFactor();
+            return Math.round(convertedValue * 100.0) / 100.0;
         }
 
-        @Test
-        public void testFeetEquality_DifferentClass() {
-            Feet f1 = new Feet(0.0);
-            Object obj = new Object();
-            assertNotEquals(f1, obj, "A Feet object should not be equal to an object of a different class.");
+        /**
+         * UC6 Main Logic: Adds another Length to this one.
+         * Addition Pipeline: 
+         * 1. Convert both to inches -> 2. Sum them -> 3. Convert back to 'this' unit.
+         */
+        public Length add(Length thatLength) {
+            double totalInches = this.convertToBaseUnit() + thatLength.convertToBaseUnit();
+            double resultValue = convertFromBaseToTargetUnit(totalInches, this.unit);
+            return new Length(resultValue, this.unit);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Length length = (Length) o;
+            return Double.compare(Math.round(this.convertToBaseUnit() * 100.0) / 100.0, 
+                                  Math.round(length.convertToBaseUnit() * 100.0) / 100.0) == 0;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%.2f %s", value, unit);
         }
 
         @Test
@@ -81,13 +95,32 @@ public class QuantityMeasurementApp {
     }
 
     /**
-     * Main method to demonstrate Feet equality check manually.
+     * Demonstrates addition of two lengths.
      */
-    public static void main(String[] args) {
-        Feet feet1 = new Feet(1.0);
-        Feet feet2 = new Feet(1.0);
+    public static Length demonstrateLengthAddition(Length l1, Length l2) {
+        Length result = l1.add(l2);
+        System.out.println("Addition: (" + l1 + ") + (" + l2 + ") = " + result);
+        return result;
+    }
 
-        System.out.println("Checking equality for 1.0 feet and 1.0 feet...");
-        System.out.println("Result: " + feet1.equals(feet2));
+    // --- MAIN METHOD ---
+
+    public static void main(String[] args) {
+        System.out.println("=== UC6: Addition Operations Between Measurements ===\n");
+
+        // Example 1: 1 Foot + 12 Inches = 2.00 FEET
+        Length foot = new Length(1.0, Length.LengthUnit.FEET);
+        Length inches = new Length(12.0, Length.LengthUnit.INCHES);
+        demonstrateLengthAddition(foot, inches);
+
+        // Example 2: 2 Inches + 5 Centimeters
+        Length in = new Length(2.0, Length.LengthUnit.INCHES);
+        Length cm = new Length(5.0, Length.LengthUnit.CENTIMETERS);
+        demonstrateLengthAddition(in, cm);
+
+        // Example 3: 3 Yards + 3 Feet = 4.00 YARDS
+        Length yards = new Length(3.0, Length.LengthUnit.YARDS);
+        Length threeFeet = new Length(3.0, Length.LengthUnit.FEET);
+        demonstrateLengthAddition(yards, threeFeet);
     }
 }
