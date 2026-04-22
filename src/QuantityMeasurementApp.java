@@ -3,86 +3,84 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * UC7 - QuantityMeasurementApp: Addition with Target Unit Specification
- * This version introduces the ability to add two lengths and specify the 
- * output unit for the result, further reducing code duplication.
+ * UC8 - QuantityMeasurementApp: Multi-Category Support (Length & Volume)
+ * This version introduces Volume units (Gallon, Litre, ML) and prevents
+ * cross-category operations (e.g., adding Litres to Feet).
  */
 public class QuantityMeasurementApp {
 
-    // --- ENHANCED LENGTH CLASS ---
+    // --- ENHANCED MEASUREMENT CLASS ---
 
-    public static class Length {
+    public static class Quantity {
         private final double value;
-        private final LengthUnit unit;
+        private final Unit unit;
 
-        public enum LengthUnit {
-            FEET(12.0),
-            INCHES(1.0),
-            YARDS(36.0),
-            CENTIMETERS(0.453701);
+        /**
+         * Enum to define Unit Categories and their base conversion factors.
+         */
+        public enum Unit {
+            // Length Category (Base: Inches)
+            FEET(12.0, UnitType.LENGTH),
+            INCHES(1.0, UnitType.LENGTH),
+            YARDS(36.0, UnitType.LENGTH),
+            CENTIMETERS(0.4537, UnitType.LENGTH),
 
-            private final double conversionFactor;
+            // Volume Category (Base: Litres)
+            GALLON(3.78, UnitType.VOLUME),
+            LITRE(1.0, UnitType.VOLUME),
+            ML(0.001, UnitType.VOLUME);
 
-            LengthUnit(double conversionFactor) {
-                this.conversionFactor = conversionFactor;
-            }
+            public final double factor;
+            public final UnitType type;
 
-            public double getConversionFactor() {
-                return conversionFactor;
+            Unit(double factor, UnitType type) {
+                this.factor = factor;
+                this.type = type;
             }
         }
 
-        public Length(double value, LengthUnit unit) {
+        public enum UnitType { LENGTH, VOLUME }
+
+        public Quantity(double value, Unit unit) {
             this.value = value;
             this.unit = unit;
         }
 
         /**
-         * Converts current length to base unit (inches).
+         * Converts value to its respective base unit (Inches or Litres).
          */
         private double convertToBaseUnit() {
-            return value * unit.getConversionFactor();
+            return value * unit.factor;
         }
 
         /**
-         * Private utility to convert an inch value to a target unit with rounding.
+         * Compares two quantities for equality.
+         * Includes a check to ensure units belong to the same category.
          */
-        private double convertFromBaseToTargetUnit(double lengthInInches, LengthUnit targetUnit) {
-            double convertedValue = lengthInInches / targetUnit.getConversionFactor();
-            return Math.round(convertedValue * 100.0) / 100.0;
-        }
-
-        /**
-         * UC7 Core Logic: Internal helper to sum and convert.
-         * Used by both add methods to maintain DRY principles.
-         */
-        private Length addAndConvert(Length thatLength, LengthUnit targetUnit) {
-            double totalInches = this.convertToBaseUnit() + thatLength.convertToBaseUnit();
-            double resultValue = convertFromBaseToTargetUnit(totalInches, targetUnit);
-            return new Length(resultValue, targetUnit);
-        }
-
-        /**
-         * UC6 Compatibility: Adds another length, returning result in 'this' unit.
-         */
-        public Length add(Length thatLength) {
-            return addAndConvert(thatLength, this.unit);
-        }
-
-        /**
-         * UC7 New Feature: Adds another length, returning result in the 'targetUnit'.
-         */
-        public Length add(Length thatLength, LengthUnit targetUnit) {
-            return addAndConvert(thatLength, targetUnit);
-        }
-
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            Length length = (Length) o;
+            Quantity that = (Quantity) o;
+            
+            // Prevent comparing Length to Volume
+            if (this.unit.type != that.unit.type) return false;
+
             return Double.compare(Math.round(this.convertToBaseUnit() * 100.0) / 100.0, 
-                                  Math.round(length.convertToBaseUnit() * 100.0) / 100.0) == 0;
+                                  Math.round(that.convertToBaseUnit() * 100.0) / 100.0) == 0;
+        }
+
+        /**
+         * Adds two quantities and returns result in the specified target unit.
+         * Throws IllegalArgumentException if categories don't match.
+         */
+        public Quantity add(Quantity that, Unit targetUnit) {
+            if (this.unit.type != that.unit.type || this.unit.type != targetUnit.type) {
+                throw new IllegalArgumentException("Incompatible Unit Categories");
+            }
+            double totalBaseValue = this.convertToBaseUnit() + that.convertToBaseUnit();
+            double resultValue = Math.round((totalBaseValue / targetUnit.factor) * 100.0) / 100.0;
+            return new Quantity(resultValue, targetUnit);
         }
 
         @Override
@@ -96,35 +94,33 @@ public class QuantityMeasurementApp {
         }
     }
 
-    // --- DEMONSTRATION METHODS ---
-
-    /**
-     * Demonstrates addition with an explicit target unit.
-     */
-    public static void demonstrateAdditionWithTarget(Length l1, Length l2, Length.LengthUnit target) {
-        Length result = l1.add(l2, target);
-        System.out.println("Addition: (" + l1 + ") + (" + l2 + ") in " + target + " = " + result);
-    }
-
     // --- MAIN METHOD ---
 
     public static void main(String[] args) {
-        System.out.println("=== UC7: Addition with Target Unit Specification ===\n");
+        System.out.println("=== UC8: Multi-Category Support (Length & Volume) ===\n");
 
-        Length oneFoot = new Length(1.0, Length.LengthUnit.FEET);
-        Length twelveInches = new Length(12.0, Length.LengthUnit.INCHES);
+        // 1. Volume Equality: 1 Gallon == 3.78 Litres
+        Quantity gallon = new Quantity(1.0, Quantity.Unit.GALLON);
+        Quantity litres = new Quantity(3.78, Quantity.Unit.LITRE);
+        System.out.println("1 Gallon == 3.78 Litres: " + gallon.equals(litres));
 
-        // 1. Result in Feet (UC6 style)
-        System.out.println("Result in First Operand Unit:");
-        System.out.println("Sum: " + oneFoot.add(twelveInches)); // 2.00 FEET
+        // 2. Volume Addition: 1 Gallon + 3.78 Litres = 7.56 Litres
+        Quantity sumVolume = gallon.add(litres, Quantity.Unit.LITRE);
+        System.out.println("Addition (Result in Litres): " + sumVolume);
 
-        // 2. Result in Inches (UC7 style)
-        System.out.println("\nResult in Specified Target Unit:");
-        demonstrateAdditionWithTarget(oneFoot, twelveInches, Length.LengthUnit.INCHES); // 24.00 INCHES
+        // 3. Volume Addition: 1 Litre + 1000 ML = 2 Litres
+        Quantity litre = new Quantity(1.0, Quantity.Unit.LITRE);
+        Quantity ml = new Quantity(1000.0, Quantity.Unit.ML);
+        System.out.println("1 Litre + 1000 ML = " + litre.add(ml, Quantity.Unit.LITRE));
 
-        // 3. Complex addition to Yards
-        Length twoFeet = new Length(2.0, Length.LengthUnit.FEET);
-        Length oneYard = new Length(1.0, Length.LengthUnit.YARDS);
-        demonstrateAdditionWithTarget(twoFeet, oneYard, Length.LengthUnit.YARDS); // 1.67 YARDS
+        // 4. Category Protection Example (Length vs Volume)
+        Quantity foot = new Quantity(1.0, Quantity.Unit.FEET);
+        System.out.println("\nEquality Check (1 Foot vs 1 Gallon): " + foot.equals(gallon));
+        
+        try {
+            foot.add(gallon, Quantity.Unit.FEET);
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error: " + e.getMessage()); // Expected: Incompatible Unit Categories
+        }
     }
 }
