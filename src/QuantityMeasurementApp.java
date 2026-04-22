@@ -3,43 +3,44 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * UC8 - QuantityMeasurementApp: Multi-Category Support (Length & Volume)
- * This version introduces Volume units (Gallon, Litre, ML) and prevents
- * cross-category operations (e.g., adding Litres to Feet).
+ * UC9 - QuantityMeasurementApp: Full Multi-Category Support
+ * Supports: Length, Volume, Weight, and Temperature.
+ * Handles additive units (Length/Volume/Weight) and non-additive offset units (Temperature).
  */
 public class QuantityMeasurementApp {
-
-    // --- ENHANCED MEASUREMENT CLASS ---
 
     public static class Quantity {
         private final double value;
         private final Unit unit;
 
         /**
-         * Enum to define Unit Categories and their base conversion factors.
+         * Enum defining all supported units, their base factors, and categories.
+         * For Temperature, factors are used for ratio, and base is Celsius.
          */
         public enum Unit {
-            // Length Category (Base: Inches)
-            FEET(12.0, UnitType.LENGTH),
-            INCHES(1.0, UnitType.LENGTH),
-            YARDS(36.0, UnitType.LENGTH),
-            CENTIMETERS(0.4537, UnitType.LENGTH),
+            // LENGTH (Base: Inches)
+            FEET(12.0, Category.LENGTH), INCHES(1.0, Category.LENGTH), 
+            YARDS(36.0, Category.LENGTH), CM(0.4537, Category.LENGTH),
 
-            // Volume Category (Base: Litres)
-            GALLON(3.78, UnitType.VOLUME),
-            LITRE(1.0, UnitType.VOLUME),
-            ML(0.001, UnitType.VOLUME);
+            // VOLUME (Base: Litres)
+            GALLON(3.78, Category.VOLUME), LITRE(1.0, Category.VOLUME), ML(0.001, Category.VOLUME),
+
+            // WEIGHT (Base: Grams)
+            KG(1000.0, Category.WEIGHT), GRAMS(1.0, Category.WEIGHT), TONNE(1000000.0, Category.WEIGHT),
+
+            // TEMPERATURE (Base: Celsius)
+            FAHRENHEIT(1.0, Category.TEMPERATURE), CELSIUS(1.0, Category.TEMPERATURE);
 
             public final double factor;
-            public final UnitType type;
+            public final Category category;
 
-            Unit(double factor, UnitType type) {
+            Unit(double factor, Category category) {
                 this.factor = factor;
-                this.type = type;
+                this.category = category;
             }
         }
 
-        public enum UnitType { LENGTH, VOLUME }
+        public enum Category { LENGTH, VOLUME, WEIGHT, TEMPERATURE }
 
         public Quantity(double value, Unit unit) {
             this.value = value;
@@ -47,80 +48,64 @@ public class QuantityMeasurementApp {
         }
 
         /**
-         * Converts value to its respective base unit (Inches or Litres).
+         * Converts value to category base unit.
+         * Special handling for Fahrenheit to Celsius conversion.
          */
-        private double convertToBaseUnit() {
+        private double convertToBase() {
+            if (unit == Unit.FAHRENHEIT) {
+                return (value - 32) * 5 / 9;
+            }
             return value * unit.factor;
         }
 
-        /**
-         * Compares two quantities for equality.
-         * Includes a check to ensure units belong to the same category.
-         */
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             Quantity that = (Quantity) o;
-            
-            // Prevent comparing Length to Volume
-            if (this.unit.type != that.unit.type) return false;
+            if (this.unit.category != that.unit.category) return false;
 
-            return Double.compare(Math.round(this.convertToBaseUnit() * 100.0) / 100.0, 
-                                  Math.round(that.convertToBaseUnit() * 100.0) / 100.0) == 0;
+            double v1 = convertToBase();
+            double v2 = that.convertToBase();
+            return Double.compare(Math.round(v1 * 100.0) / 100.0, Math.round(v2 * 100.0) / 100.0) == 0;
         }
 
         /**
-         * Adds two quantities and returns result in the specified target unit.
-         * Throws IllegalArgumentException if categories don't match.
+         * Adds two quantities. Addition is only allowed for additive categories.
          */
-        public Quantity add(Quantity that, Unit targetUnit) {
-            if (this.unit.type != that.unit.type || this.unit.type != targetUnit.type) {
-                throw new IllegalArgumentException("Incompatible Unit Categories");
+        public Quantity add(Quantity that, Unit target) {
+            if (this.unit.category == Category.TEMPERATURE) {
+                throw new IllegalArgumentException("Temperature addition is not physically meaningful.");
             }
-            double totalBaseValue = this.convertToBaseUnit() + that.convertToBaseUnit();
-            double resultValue = Math.round((totalBaseValue / targetUnit.factor) * 100.0) / 100.0;
-            return new Quantity(resultValue, targetUnit);
+            if (this.unit.category != that.unit.category || this.unit.category != target.category) {
+                throw new IllegalArgumentException("Category mismatch");
+            }
+            double totalBase = this.convertToBase() + that.convertToBase();
+            return new Quantity(Math.round((totalBase / target.factor) * 100.0) / 100.0, target);
         }
 
         @Override
-        public String toString() {
-            return String.format("%.2f %s", value, unit);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(value, unit);
-        }
+        public String toString() { return value + " " + unit; }
     }
 
-    // --- MAIN METHOD ---
-
     public static void main(String[] args) {
-        System.out.println("=== UC8: Multi-Category Support (Length & Volume) ===\n");
+        System.out.println("=== UC9: Weight & Temperature Support ===");
 
-        // 1. Volume Equality: 1 Gallon == 3.78 Litres
-        Quantity gallon = new Quantity(1.0, Quantity.Unit.GALLON);
-        Quantity litres = new Quantity(3.78, Quantity.Unit.LITRE);
-        System.out.println("1 Gallon == 3.78 Litres: " + gallon.equals(litres));
+        // 1. Weight Equality: 1 KG == 1000 Grams
+        Quantity kg = new Quantity(1.0, Quantity.Unit.KG);
+        Quantity g = new Quantity(1000.0, Quantity.Unit.GRAMS);
+        System.out.println("1 KG == 1000 Grams: " + kg.equals(g));
 
-        // 2. Volume Addition: 1 Gallon + 3.78 Litres = 7.56 Litres
-        Quantity sumVolume = gallon.add(litres, Quantity.Unit.LITRE);
-        System.out.println("Addition (Result in Litres): " + sumVolume);
+        // 2. Weight Addition: 1 Tonne + 1000 Grams = 1001 KG
+        Quantity tonne = new Quantity(1.0, Quantity.Unit.TONNE);
+        System.out.println("1 Tonne + 1000g in KG: " + tonne.add(g, Quantity.Unit.KG));
 
-        // 3. Volume Addition: 1 Litre + 1000 ML = 2 Litres
-        Quantity litre = new Quantity(1.0, Quantity.Unit.LITRE);
-        Quantity ml = new Quantity(1000.0, Quantity.Unit.ML);
-        System.out.println("1 Litre + 1000 ML = " + litre.add(ml, Quantity.Unit.LITRE));
+        // 3. Temperature: 212 F == 100 C
+        Quantity fahr = new Quantity(212.0, Quantity.Unit.FAHRENHEIT);
+        Quantity cel = new Quantity(100.0, Quantity.Unit.CELSIUS);
+        System.out.println("212 F == 100 C: " + fahr.equals(cel));
 
-        // 4. Category Protection Example (Length vs Volume)
-        Quantity foot = new Quantity(1.0, Quantity.Unit.FEET);
-        System.out.println("\nEquality Check (1 Foot vs 1 Gallon): " + foot.equals(gallon));
-        
-        try {
-            foot.add(gallon, Quantity.Unit.FEET);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Error: " + e.getMessage()); // Expected: Incompatible Unit Categories
-        }
+        // 4. Temperature: 32 F == 0 C
+        System.out.println("32 F == 0 C: " + new Quantity(32, Quantity.Unit.FAHRENHEIT).equals(new Quantity(0, Quantity.Unit.CELSIUS)));
     }
 }
