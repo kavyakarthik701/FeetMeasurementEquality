@@ -3,30 +3,23 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * QuantityMeasurementAppUC4 - Extended Unit Support
- * This version adds support for Yards and Centimeters while maintaining 
- * the DRY principle and backward compatibility with UC3.
+ * UC6 - QuantityMeasurementApp: Addition Operations Between Lengths
+ * This version allows adding two Length objects of the same category.
+ * The result is returned in the unit of the first operand.
  */
 public class QuantityMeasurementApp {
 
-    // --- EXTENDED LENGTH CLASS ---
+    // --- REFACTORED LENGTH CLASS WITH ADDITION ---
 
     public static class Length {
         private final double value;
         private final LengthUnit unit;
 
-        /**
-         * Enum representing length units with conversion factors relative to Inches.
-         * FEET = 12 inches
-         * INCHES = 1 inch
-         * YARDS = 36 inches
-         * CENTIMETERS = 0.393701 inches
-         */
         public enum LengthUnit {
             FEET(12.0),
             INCHES(1.0),
             YARDS(36.0),
-            CENTIMETERS(0.393701);
+            CENTIMETERS(0.453701);
 
             private final double conversionFactor;
 
@@ -45,20 +38,29 @@ public class QuantityMeasurementApp {
         }
 
         /**
-         * Converts value to base unit (inches) and rounds to 2 decimal places 
-         * to handle floating-point precision issues in comparisons.
+         * Converts current length to inches (base unit).
          */
         private double convertToBaseUnit() {
-            double rawValue = value * unit.getConversionFactor();
-            return Math.round(rawValue * 100.0) / 100.0;
+            return value * unit.getConversionFactor();
         }
 
         /**
-         * Compares two Length objects based on their base unit values.
+         * UC6 Helper: Converts an inch value back to a specific target unit.
          */
-        public boolean compare(Length thatLength) {
-            if (thatLength == null) return false;
-            return Double.compare(this.convertToBaseUnit(), thatLength.convertToBaseUnit()) == 0;
+        private double convertFromBaseToTargetUnit(double lengthInInches, LengthUnit targetUnit) {
+            double convertedValue = lengthInInches / targetUnit.getConversionFactor();
+            return Math.round(convertedValue * 100.0) / 100.0;
+        }
+
+        /**
+         * UC6 Main Logic: Adds another Length to this one.
+         * Addition Pipeline: 
+         * 1. Convert both to inches -> 2. Sum them -> 3. Convert back to 'this' unit.
+         */
+        public Length add(Length thatLength) {
+            double totalInches = this.convertToBaseUnit() + thatLength.convertToBaseUnit();
+            double resultValue = convertFromBaseToTargetUnit(totalInches, this.unit);
+            return new Length(resultValue, this.unit);
         }
 
         @Override
@@ -66,7 +68,13 @@ public class QuantityMeasurementApp {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             Length length = (Length) o;
-            return this.compare(length);
+            return Double.compare(Math.round(this.convertToBaseUnit() * 100.0) / 100.0, 
+                                  Math.round(length.convertToBaseUnit() * 100.0) / 100.0) == 0;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%.2f %s", value, unit);
         }
 
         @Override
@@ -78,36 +86,32 @@ public class QuantityMeasurementApp {
     // --- DEMONSTRATION METHODS ---
 
     /**
-     * Demonstrates comparison between two values and prints the result.
+     * Demonstrates addition of two lengths.
      */
-    public static boolean demonstrateLengthComparison(double val1, Length.LengthUnit unit1, 
-                                                     double val2, Length.LengthUnit unit2) {
-        Length length1 = new Length(val1, unit1);
-        Length length2 = new Length(val2, unit2);
-        boolean isEqual = length1.equals(length2);
-        
-        System.out.println(val1 + " " + unit1 + " == " + val2 + " " + unit2 + " is: " + isEqual);
-        return isEqual;
+    public static Length demonstrateLengthAddition(Length l1, Length l2) {
+        Length result = l1.add(l2);
+        System.out.println("Addition: (" + l1 + ") + (" + l2 + ") = " + result);
+        return result;
     }
 
     // --- MAIN METHOD ---
 
     public static void main(String[] args) {
-        System.out.println("=== UC4: Extended Unit Support (Feet, Inches, Yards, CM) ===\n");
+        System.out.println("=== UC6: Addition Operations Between Measurements ===\n");
 
-        // 1. Feet and Inches Comparison
-        demonstrateLengthComparison(1.0, Length.LengthUnit.FEET, 12.0, Length.LengthUnit.INCHES);
+        // Example 1: 1 Foot + 12 Inches = 2.00 FEET
+        Length foot = new Length(1.0, Length.LengthUnit.FEET);
+        Length inches = new Length(12.0, Length.LengthUnit.INCHES);
+        demonstrateLengthAddition(foot, inches);
 
-        // 2. Yards and Inches Comparison
-        demonstrateLengthComparison(1.0, Length.LengthUnit.YARDS, 36.0, Length.LengthUnit.INCHES);
+        // Example 2: 2 Inches + 5 Centimeters
+        Length in = new Length(2.0, Length.LengthUnit.INCHES);
+        Length cm = new Length(5.0, Length.LengthUnit.CENTIMETERS);
+        demonstrateLengthAddition(in, cm);
 
-        // 3. Centimeters and Inches Comparison
-        demonstrateLengthComparison(100.0, Length.LengthUnit.CENTIMETERS, 39.3701, Length.LengthUnit.INCHES);
-
-        // 4. Feet and Yards Comparison
-        demonstrateLengthComparison(3.0, Length.LengthUnit.FEET, 1.0, Length.LengthUnit.YARDS);
-
-        // 5. Centimeters and Feet Comparison
-        demonstrateLengthComparison(30.48, Length.LengthUnit.CENTIMETERS, 1.0, Length.LengthUnit.FEET);
+        // Example 3: 3 Yards + 3 Feet = 4.00 YARDS
+        Length yards = new Length(3.0, Length.LengthUnit.YARDS);
+        Length threeFeet = new Length(3.0, Length.LengthUnit.FEET);
+        demonstrateLengthAddition(yards, threeFeet);
     }
 }
