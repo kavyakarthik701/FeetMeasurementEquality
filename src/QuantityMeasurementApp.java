@@ -3,13 +3,13 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * UC6 - QuantityMeasurementApp: Addition Operations Between Lengths
- * This version allows adding two Length objects of the same category.
- * The result is returned in the unit of the first operand.
+ * UC7 - QuantityMeasurementApp: Addition with Target Unit Specification
+ * This version introduces the ability to add two lengths and specify the 
+ * output unit for the result, further reducing code duplication.
  */
 public class QuantityMeasurementApp {
 
-    // --- REFACTORED LENGTH CLASS WITH ADDITION ---
+    // --- ENHANCED LENGTH CLASS ---
 
     public static class Length {
         private final double value;
@@ -38,14 +38,14 @@ public class QuantityMeasurementApp {
         }
 
         /**
-         * Converts current length to inches (base unit).
+         * Converts current length to base unit (inches).
          */
         private double convertToBaseUnit() {
             return value * unit.getConversionFactor();
         }
 
         /**
-         * UC6 Helper: Converts an inch value back to a specific target unit.
+         * Private utility to convert an inch value to a target unit with rounding.
          */
         private double convertFromBaseToTargetUnit(double lengthInInches, LengthUnit targetUnit) {
             double convertedValue = lengthInInches / targetUnit.getConversionFactor();
@@ -53,14 +53,27 @@ public class QuantityMeasurementApp {
         }
 
         /**
-         * UC6 Main Logic: Adds another Length to this one.
-         * Addition Pipeline: 
-         * 1. Convert both to inches -> 2. Sum them -> 3. Convert back to 'this' unit.
+         * UC7 Core Logic: Internal helper to sum and convert.
+         * Used by both add methods to maintain DRY principles.
+         */
+        private Length addAndConvert(Length thatLength, LengthUnit targetUnit) {
+            double totalInches = this.convertToBaseUnit() + thatLength.convertToBaseUnit();
+            double resultValue = convertFromBaseToTargetUnit(totalInches, targetUnit);
+            return new Length(resultValue, targetUnit);
+        }
+
+        /**
+         * UC6 Compatibility: Adds another length, returning result in 'this' unit.
          */
         public Length add(Length thatLength) {
-            double totalInches = this.convertToBaseUnit() + thatLength.convertToBaseUnit();
-            double resultValue = convertFromBaseToTargetUnit(totalInches, this.unit);
-            return new Length(resultValue, this.unit);
+            return addAndConvert(thatLength, this.unit);
+        }
+
+        /**
+         * UC7 New Feature: Adds another length, returning result in the 'targetUnit'.
+         */
+        public Length add(Length thatLength, LengthUnit targetUnit) {
+            return addAndConvert(thatLength, targetUnit);
         }
 
         @Override
@@ -86,32 +99,32 @@ public class QuantityMeasurementApp {
     // --- DEMONSTRATION METHODS ---
 
     /**
-     * Demonstrates addition of two lengths.
+     * Demonstrates addition with an explicit target unit.
      */
-    public static Length demonstrateLengthAddition(Length l1, Length l2) {
-        Length result = l1.add(l2);
-        System.out.println("Addition: (" + l1 + ") + (" + l2 + ") = " + result);
-        return result;
+    public static void demonstrateAdditionWithTarget(Length l1, Length l2, Length.LengthUnit target) {
+        Length result = l1.add(l2, target);
+        System.out.println("Addition: (" + l1 + ") + (" + l2 + ") in " + target + " = " + result);
     }
 
     // --- MAIN METHOD ---
 
     public static void main(String[] args) {
-        System.out.println("=== UC6: Addition Operations Between Measurements ===\n");
+        System.out.println("=== UC7: Addition with Target Unit Specification ===\n");
 
-        // Example 1: 1 Foot + 12 Inches = 2.00 FEET
-        Length foot = new Length(1.0, Length.LengthUnit.FEET);
-        Length inches = new Length(12.0, Length.LengthUnit.INCHES);
-        demonstrateLengthAddition(foot, inches);
+        Length oneFoot = new Length(1.0, Length.LengthUnit.FEET);
+        Length twelveInches = new Length(12.0, Length.LengthUnit.INCHES);
 
-        // Example 2: 2 Inches + 5 Centimeters
-        Length in = new Length(2.0, Length.LengthUnit.INCHES);
-        Length cm = new Length(5.0, Length.LengthUnit.CENTIMETERS);
-        demonstrateLengthAddition(in, cm);
+        // 1. Result in Feet (UC6 style)
+        System.out.println("Result in First Operand Unit:");
+        System.out.println("Sum: " + oneFoot.add(twelveInches)); // 2.00 FEET
 
-        // Example 3: 3 Yards + 3 Feet = 4.00 YARDS
-        Length yards = new Length(3.0, Length.LengthUnit.YARDS);
-        Length threeFeet = new Length(3.0, Length.LengthUnit.FEET);
-        demonstrateLengthAddition(yards, threeFeet);
+        // 2. Result in Inches (UC7 style)
+        System.out.println("\nResult in Specified Target Unit:");
+        demonstrateAdditionWithTarget(oneFoot, twelveInches, Length.LengthUnit.INCHES); // 24.00 INCHES
+
+        // 3. Complex addition to Yards
+        Length twoFeet = new Length(2.0, Length.LengthUnit.FEET);
+        Length oneYard = new Length(1.0, Length.LengthUnit.YARDS);
+        demonstrateAdditionWithTarget(twoFeet, oneYard, Length.LengthUnit.YARDS); // 1.67 YARDS
     }
 }
