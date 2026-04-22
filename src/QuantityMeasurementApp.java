@@ -4,16 +4,14 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * QuantityMeasurementApp - UC2: Inches measurement equality
- * This class is responsible for checking the equality of numerical values
- * measured in feet and inches.
+ * QuantityMeasurementApp - UC1: Feet measurement equality
+ * This class handles the logic for representing feet and checking equality.
  */
 public class QuantityMeasurementApp {
 
-    // --- INNER CLASSES ---
-
     /**
-     * Inner class to represent Feet measurement
+     * Inner class to represent Feet measurement.
+     * Encapsulates a double value and overrides equals for comparison.
      */
     public static class Feet {
         private final double value;
@@ -22,109 +20,74 @@ public class QuantityMeasurementApp {
             this.value = value;
         }
 
+        /**
+         * Overrides equals() method to compare two Feet objects.
+         * Logic follows these steps:
+         * 1. Reference Check: Same memory address?
+         * 2. Null Check: Is the other object null?
+         * 3. Type Check: Is the other object a Feet instance?
+         * 4. Value Comparison: Do the primitive values match?
+         */
         @Override
         public boolean equals(Object obj) {
+            // 1. Reference Check
             if (this == obj) return true;
+
+            // 2. Null Check and 3. Type Check
             if (obj == null || getClass() != obj.getClass()) return false;
+
+            // 4. Value Comparison (casting obj to Feet)
             Feet feet = (Feet) obj;
             return Double.compare(feet.value, value) == 0;
         }
-    }
-
-    /**
-     * Inner class to represent Inches measurement
-     */
-    public static class Inches {
-        private final double value;
-
-        public Inches(double value) {
-            this.value = value;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            Inches inches = (Inches) obj;
-            return Double.compare(inches.value, value) == 0;
-        }
-    }
-
-    // --- DEMONSTRATION METHODS ---
-
-    public static void demonstrateFeetEquality() {
-        Feet f1 = new Feet(1.0);
-        Feet f2 = new Feet(1.0);
-        System.out.println("Feet Equality (1.0 == 1.0): " + f1.equals(f2));
-    }
-
-    public static void demonstrateInchesEquality() {
-        Inches i1 = new Inches(1.0);
-        Inches i2 = new Inches(1.0);
-        System.out.println("Inches Equality (1.0 == 1.0): " + i1.equals(i2));
-    }
-
-    public static void main(String[] args) {
-        demonstrateFeetEquality();
-        demonstrateInchesEquality();
     }
 
     // --- JUNIT TEST CASES (Consolidated from the second image) ---
 
     public static class QuantityMeasurementAppTest {
 
-        // --- Feet Tests ---
         @Test
         public void testFeetEquality_SameValue() {
-            assertEquals(new Feet(0.0), new Feet(0.0));
+            Feet f1 = new Feet(0.0);
+            Feet f2 = new Feet(0.0);
+            assertEquals(f1, f2, "Two Feet objects with the same value should be equal.");
         }
 
         @Test
         public void testFeetEquality_DifferentValue() {
-            assertNotEquals(new Feet(0.0), new Feet(1.0));
+            Feet f1 = new Feet(0.0);
+            Feet f2 = new Feet(1.0);
+            assertNotEquals(f1, f2, "Two Feet objects with different values should not be equal.");
         }
 
         @Test
         public void testFeetEquality_NullComparison() {
-            assertNotEquals(new Feet(0.0), null);
+            Feet f1 = new Feet(0.0);
+            assertNotEquals(null, f1, "A Feet object should not be equal to null.");
         }
 
         @Test
         public void testFeetEquality_DifferentClass() {
-            assertNotEquals(new Feet(0.0), new Object());
+            Feet f1 = new Feet(0.0);
+            Object obj = new Object();
+            assertNotEquals(f1, obj, "A Feet object should not be equal to an object of a different class.");
         }
 
         @Test
         public void testFeetEquality_SameReference() {
             Feet f1 = new Feet(0.0);
-            assertEquals(f1, f1);
+            assertEquals(f1, f1, "An object should be equal to its own reference.");
         }
+    }
 
-        // --- Inches Tests ---
-        @Test
-        public void testInchesEquality_SameValue() {
-            assertEquals(new Inches(0.0), new Inches(0.0));
-        }
+    /**
+     * Main method to demonstrate Feet equality check manually.
+     */
+    public static void main(String[] args) {
+        Feet feet1 = new Feet(1.0);
+        Feet feet2 = new Feet(1.0);
 
-        @Test
-        public void testInchesEquality_DifferentValue() {
-            assertNotEquals(new Inches(0.0), new Inches(1.0));
-        }
-
-        @Test
-        public void testInchesEquality_NullComparison() {
-            assertNotEquals(new Inches(0.0), null);
-        }
-
-        @Test
-        public void testInchesEquality_DifferentClass() {
-            assertNotEquals(new Inches(0.0), new Object());
-        }
-
-        @Test
-        public void testInchesEquality_SameReference() {
-            Inches i1 = new Inches(0.0);
-            assertEquals(i1, i1);
-        }
+        System.out.println("Checking equality for 1.0 feet and 1.0 feet...");
+        System.out.println("Result: " + feet1.equals(feet2));
     }
 }
