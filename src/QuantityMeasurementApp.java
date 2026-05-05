@@ -1,88 +1,88 @@
 package com.apps.quantitymeasurement;
 
-import java.util.function.DoubleBinaryOperator;
+import java.util.Objects;
 
 /**
- * In UC13, the Quantity class ensures DRY principles by centralizing validation
- * and arithmetic logic using a private enum and unified methods.
+ * Represents a quantity with a numeric value and a unit of measurement.
+ * 
+ * In UC12, the Quantity class has been enhanced to include additional operations
+ * such as subtraction and division.
+ * 1. Subtraction and division, along with improved error handling for incompatible
+ *    units and division by zero scenarios.
+ * 2. The equals method has been overridden to allow for meaningful comparisons between
+ *    Quantity objects based on their converted values in base units.
+ * 3. The toString method has also been overridden to provide a clear string representation
+ *    of the Quantity object.
+ * 
+ * @author Developer
+ * @version 12.0
  */
 public class Quantity<U extends IMeasurable> {
-    private final double value;
-    private final U unit;
+    private double value;
+    private U unit;
 
     public Quantity(double value, U unit) {
         this.value = value;
         this.unit = unit;
     }
 
-    // --- Private Helper Enum & Methods ---
+    public double getValue() { return value; }
+    public U getUnit() { return unit; }
 
-    /**
-     * Enumeration representing types of arithmetic operations.
-     * Uses lambda expressions to define specific computations.
-     */
-    private enum ArithmeticOperation {
-        ADD((a, b) -> a + b),
-        SUBTRACT((a, b) -> b - a), // Logic: Subtract "this" from "other"
-        DIVIDE((a, b) -> {
-            if (b == 0) throw new ArithmeticException("Division by zero occurs");
-            return a / b;
-        });
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Quantity)) return false;
+        Quantity<?> other = (Quantity<?>) obj;
+        
+        // Ensure units are of the same category before comparing
+        if (!this.unit.getClass().equals(other.unit.getClass())) return false;
 
-        private final DoubleBinaryOperator operator;
-
-        ArithmeticOperation(DoubleBinaryOperator operator) {
-            this.operator = operator;
-        }
-
-        public double compute(double v1, double v2) {
-            return operator.applyAsDouble(v1, v2);
-        }
+        double thisBaseValue = this.unit.convertToBaseUnit(this.value);
+        double otherBaseValue = ((IMeasurable) other.unit).convertToBaseUnit(other.value);
+        return Math.abs(thisBaseValue - otherBaseValue) < 0.01;
     }
 
-    /**
-     * Validates NULLs, unit compatibility, and numeric finiteness.
-     */
-    private void validateArithmeticOperands(Quantity<U> other, U targetUnit, boolean targetUnitRequired) {
-        if (other == null || (targetUnitRequired && targetUnit == null)) {
-            throw new IllegalArgumentException("Operands or target unit cannot be null");
-        }
-        if (!this.unit.getClass().equals(other.unit.getClass())) {
-            throw new IllegalArgumentException("Units are incompatible for this operation");
-        }
-        if (!Double.isFinite(this.value) || !Double.isFinite(other.value)) {
-            throw new IllegalArgumentException("Numeric values must be finite");
-        }
+    @Override
+    public String toString() {
+        return String.format("%.2f %s", value, unit);
     }
 
-    /**
-     * Unified method to execute arithmetic on base unit values.
-     */
-    private double performArithmetic(Quantity<U> other, ArithmeticOperation operation) {
-        double v1Base = this.unit.convertToBaseUnit(this.value);
-        double v2Base = other.unit.convertToBaseUnit(other.value);
-        return operation.compute(v1Base, v2Base);
+    public <T extends IMeasurable> double convertTo(T targetUnit) {
+        double baseValue = unit.convertToBaseUnit(this.value);
+        return targetUnit.convertFromBaseUnit(baseValue);
     }
-
-    // --- Public Arithmetic Interface ---
 
     public Quantity<U> add(Quantity<U> other, U targetUnit) {
-        validateArithmeticOperands(other, targetUnit, true);
-        double resultBase = performArithmetic(other, ArithmeticOperation.ADD);
-        return new Quantity<>(targetUnit.convertFromBaseUnit(resultBase), targetUnit);
+        double sumInBase = this.unit.convertToBaseUnit(this.value) + 
+                           other.unit.convertToBaseUnit(other.value);
+        return new Quantity<>(targetUnit.convertFromBaseUnit(sumInBase), targetUnit);
     }
 
+    /**
+     * Subtracts this Quantity from another Quantity of the same unit type and 
+     * returns the result in a specified target unit.
+     */
     public Quantity<U> subtract(Quantity<U> other, U targetUnit) {
-        validateArithmeticOperands(other, targetUnit, true);
-        double resultBase = performArithmetic(other, ArithmeticOperation.SUBTRACT);
-        if (resultBase < 0) throw new IllegalArgumentException("Result cannot be negative");
-        return new Quantity<>(targetUnit.convertFromBaseUnit(resultBase), targetUnit);
+        // Logic: other - this (Subtracting "this" FROM "other")
+        double diffInBase = other.unit.convertToBaseUnit(other.value) - 
+                            this.unit.convertToBaseUnit(this.value);
+        
+        if (diffInBase < 0) {
+            throw new IllegalArgumentException("Subtraction resulted in a negative value.");
+        }
+        return new Quantity<>(targetUnit.convertFromBaseUnit(diffInBase), targetUnit);
     }
 
+    /**
+     * Divides this Quantity by another Quantity of the same unit type and 
+     * returns the result as a double.
+     */
     public double divide(Quantity<U> other) {
-        validateArithmeticOperands(other, null, false);
-        return performArithmetic(other, ArithmeticOperation.DIVIDE);
+        double divisorBase = other.unit.convertToBaseUnit(other.value);
+        if (divisorBase == 0) {
+            throw new ArithmeticException("Division by zero occurs");
+        }
+        return this.unit.convertToBaseUnit(this.value) / divisorBase;
     }
-
-    // Standard overrides (equals, toString, etc.) omitted for brevity...
 }
