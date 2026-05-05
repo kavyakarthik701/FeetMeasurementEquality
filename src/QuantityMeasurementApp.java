@@ -3,109 +3,86 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * UC9 - QuantityMeasurementApp: Full Multi-Category Support
- * Supports: Length, Volume, Weight, and Temperature.
- * Handles additive units (Length/Volume/Weight) and non-additive offset units (Temperature).
+ * Represents a quantity with a numeric value and a unit of measurement.
+ * 
+ * In UC12, the Quantity class has been enhanced to include additional operations
+ * such as subtraction and division.
+ * 1. Subtraction and division, along with improved error handling for incompatible
+ *    units and division by zero scenarios.
+ * 2. The equals method has been overridden to allow for meaningful comparisons between
+ *    Quantity objects based on their converted values in base units.
+ * 3. The toString method has also been overridden to provide a clear string representation
+ *    of the Quantity object.
+ * 
+ * @author Developer
+ * @version 12.0
  */
-public class QuantityMeasurementApp {
+public class Quantity<U extends IMeasurable> {
+    private double value;
+    private U unit;
 
-    public static class Quantity {
-        private final double value;
-        private final Unit unit;
-
-        /**
-         * Enum defining all supported units, their base factors, and categories.
-         * For Temperature, factors are used for ratio, and base is Celsius.
-         */
-        public enum Unit {
-            // LENGTH (Base: Inches)
-            FEET(12.0, Category.LENGTH), INCHES(1.0, Category.LENGTH), 
-            YARDS(36.0, Category.LENGTH), CM(0.4537, Category.LENGTH),
-
-            // VOLUME (Base: Litres)
-            GALLON(3.78, Category.VOLUME), LITRE(1.0, Category.VOLUME), ML(0.001, Category.VOLUME),
-
-            // WEIGHT (Base: Grams)
-            KG(1000.0, Category.WEIGHT), GRAMS(1.0, Category.WEIGHT), TONNE(1000000.0, Category.WEIGHT),
-
-            // TEMPERATURE (Base: Celsius)
-            FAHRENHEIT(1.0, Category.TEMPERATURE), CELSIUS(1.0, Category.TEMPERATURE);
-
-            public final double factor;
-            public final Category category;
-
-            Unit(double factor, Category category) {
-                this.factor = factor;
-                this.category = category;
-            }
-        }
-
-        public enum Category { LENGTH, VOLUME, WEIGHT, TEMPERATURE }
-
-        public Quantity(double value, Unit unit) {
-            this.value = value;
-            this.unit = unit;
-        }
-
-        /**
-         * Converts value to category base unit.
-         * Special handling for Fahrenheit to Celsius conversion.
-         */
-        private double convertToBase() {
-            if (unit == Unit.FAHRENHEIT) {
-                return (value - 32) * 5 / 9;
-            }
-            return value * unit.factor;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Quantity that = (Quantity) o;
-            if (this.unit.category != that.unit.category) return false;
-
-            double v1 = convertToBase();
-            double v2 = that.convertToBase();
-            return Double.compare(Math.round(v1 * 100.0) / 100.0, Math.round(v2 * 100.0) / 100.0) == 0;
-        }
-
-        /**
-         * Adds two quantities. Addition is only allowed for additive categories.
-         */
-        public Quantity add(Quantity that, Unit target) {
-            if (this.unit.category == Category.TEMPERATURE) {
-                throw new IllegalArgumentException("Temperature addition is not physically meaningful.");
-            }
-            if (this.unit.category != that.unit.category || this.unit.category != target.category) {
-                throw new IllegalArgumentException("Category mismatch");
-            }
-            double totalBase = this.convertToBase() + that.convertToBase();
-            return new Quantity(Math.round((totalBase / target.factor) * 100.0) / 100.0, target);
-        }
-
-        @Override
-        public String toString() { return value + " " + unit; }
+    public Quantity(double value, U unit) {
+        this.value = value;
+        this.unit = unit;
     }
 
-    public static void main(String[] args) {
-        System.out.println("=== UC9: Weight & Temperature Support ===");
+    public double getValue() { return value; }
+    public U getUnit() { return unit; }
 
-        // 1. Weight Equality: 1 KG == 1000 Grams
-        Quantity kg = new Quantity(1.0, Quantity.Unit.KG);
-        Quantity g = new Quantity(1000.0, Quantity.Unit.GRAMS);
-        System.out.println("1 KG == 1000 Grams: " + kg.equals(g));
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Quantity)) return false;
+        Quantity<?> other = (Quantity<?>) obj;
+        
+        // Ensure units are of the same category before comparing
+        if (!this.unit.getClass().equals(other.unit.getClass())) return false;
 
-        // 2. Weight Addition: 1 Tonne + 1000 Grams = 1001 KG
-        Quantity tonne = new Quantity(1.0, Quantity.Unit.TONNE);
-        System.out.println("1 Tonne + 1000g in KG: " + tonne.add(g, Quantity.Unit.KG));
+        double thisBaseValue = this.unit.convertToBaseUnit(this.value);
+        double otherBaseValue = ((IMeasurable) other.unit).convertToBaseUnit(other.value);
+        return Math.abs(thisBaseValue - otherBaseValue) < 0.01;
+    }
 
-        // 3. Temperature: 212 F == 100 C
-        Quantity fahr = new Quantity(212.0, Quantity.Unit.FAHRENHEIT);
-        Quantity cel = new Quantity(100.0, Quantity.Unit.CELSIUS);
-        System.out.println("212 F == 100 C: " + fahr.equals(cel));
+    @Override
+    public String toString() {
+        return String.format("%.2f %s", value, unit);
+    }
 
-        // 4. Temperature: 32 F == 0 C
-        System.out.println("32 F == 0 C: " + new Quantity(32, Quantity.Unit.FAHRENHEIT).equals(new Quantity(0, Quantity.Unit.CELSIUS)));
+    public <T extends IMeasurable> double convertTo(T targetUnit) {
+        double baseValue = unit.convertToBaseUnit(this.value);
+        return targetUnit.convertFromBaseUnit(baseValue);
+    }
+
+    public Quantity<U> add(Quantity<U> other, U targetUnit) {
+        double sumInBase = this.unit.convertToBaseUnit(this.value) + 
+                           other.unit.convertToBaseUnit(other.value);
+        return new Quantity<>(targetUnit.convertFromBaseUnit(sumInBase), targetUnit);
+    }
+
+    /**
+     * Subtracts this Quantity from another Quantity of the same unit type and 
+     * returns the result in a specified target unit.
+     */
+    public Quantity<U> subtract(Quantity<U> other, U targetUnit) {
+        // Logic: other - this (Subtracting "this" FROM "other")
+        double diffInBase = other.unit.convertToBaseUnit(other.value) - 
+                            this.unit.convertToBaseUnit(this.value);
+        
+        if (diffInBase < 0) {
+            throw new IllegalArgumentException("Subtraction resulted in a negative value.");
+        }
+        return new Quantity<>(targetUnit.convertFromBaseUnit(diffInBase), targetUnit);
+    }
+
+    /**
+     * Divides this Quantity by another Quantity of the same unit type and 
+     * returns the result as a double.
+     */
+    public double divide(Quantity<U> other) {
+        double divisorBase = other.unit.convertToBaseUnit(other.value);
+        if (divisorBase == 0) {
+            throw new ArithmeticException("Division by zero occurs");
+        }
+        return this.unit.convertToBaseUnit(this.value) / divisorBase;
     }
 }
