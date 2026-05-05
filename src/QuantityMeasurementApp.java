@@ -3,109 +3,110 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * UC9 - QuantityMeasurementApp: Full Multi-Category Support
- * Supports: Length, Volume, Weight, and Temperature.
- * Handles additive units (Length/Volume/Weight) and non-additive offset units (Temperature).
+ * IMeasurable interface defines the contract for all measurement units.
+ * It ensures that different types of measurements (Length, Weight, Volume) 
+ * can be handled by the same generic Quantity class.
  */
-public class QuantityMeasurementApp {
+interface IMeasurable {
+    double getConversionFactor(); //
+    double convertToBaseUnit(double value); //
+    double convertFromBaseUnit(double baseValue); //
+}
 
-    public static class Quantity {
-        private final double value;
-        private final Unit unit;
+// --- UNIT ENUMERATIONS ---
 
-        /**
-         * Enum defining all supported units, their base factors, and categories.
-         * For Temperature, factors are used for ratio, and base is Celsius.
-         */
-        public enum Unit {
-            // LENGTH (Base: Inches)
-            FEET(12.0, Category.LENGTH), INCHES(1.0, Category.LENGTH), 
-            YARDS(36.0, Category.LENGTH), CM(0.4537, Category.LENGTH),
+/**
+ * Length units based on inches.
+ */
+enum LengthUnit implements IMeasurable {
+    FEET(12.0), INCHES(1.0), YARDS(36.0), CENTIMETERS(0.393701); //
+    private final double factor;
+    LengthUnit(double factor) { this.factor = factor; }
+    public double getConversionFactor() { return factor; }
+    public double convertToBaseUnit(double v) { return Math.round((v * factor) * 100.0) / 100.0; } //
+    public double convertFromBaseUnit(double b) { return Math.round((b / factor) * 100.0) / 100.0; } //
+}
 
-            // VOLUME (Base: Litres)
-            GALLON(3.78, Category.VOLUME), LITRE(1.0, Category.VOLUME), ML(0.001, Category.VOLUME),
+/**
+ * Weight units based on grams.
+ */
+enum WeightUnit implements IMeasurable {
+    MILLIGRAM(0.001), GRAM(1.0), KILOGRAM(1000.0), POUND(453.592), TONNE(1000000.0); //
+    private final double factor;
+    WeightUnit(double factor) { this.factor = factor; }
+    public double getConversionFactor() { return factor; }
+    public double convertToBaseUnit(double v) { return Math.round((v * factor) * 100.0) / 100.0; } //
+    public double convertFromBaseUnit(double b) { return Math.round((b / factor) * 100.0) / 100.0; } //
+}
 
-            // WEIGHT (Base: Grams)
-            KG(1000.0, Category.WEIGHT), GRAMS(1.0, Category.WEIGHT), TONNE(1000000.0, Category.WEIGHT),
+/**
+ * Volume units based on Liters (required for tests in image_f3639e.jpg).
+ */
+enum VolumeUnit implements IMeasurable {
+    LITER(1.0), MILLILITER(0.001), GALLON(3.785); 
+    private final double factor;
+    VolumeUnit(double factor) { this.factor = factor; }
+    public double getConversionFactor() { return factor; }
+    public double convertToBaseUnit(double v) { return Math.round((v * factor) * 100.0) / 100.0; }
+    public double convertFromBaseUnit(double b) { return Math.round((b / factor) * 100.0) / 100.0; }
+}
 
-            // TEMPERATURE (Base: Celsius)
-            FAHRENHEIT(1.0, Category.TEMPERATURE), CELSIUS(1.0, Category.TEMPERATURE);
+// --- GENERIC QUANTITY CLASS ---
 
-            public final double factor;
-            public final Category category;
+/**
+ * The Generic Quantity class prevents cross-type operations.
+ * For example, a Quantity<LengthUnit> cannot be compared to a Quantity<WeightUnit>.
+ */
+class Quantity<U extends IMeasurable> {
+    private final double value;
+    private final U unit;
 
-            Unit(double factor, Category category) {
-                this.factor = factor;
-                this.category = category;
-            }
-        }
-
-        public enum Category { LENGTH, VOLUME, WEIGHT, TEMPERATURE }
-
-        public Quantity(double value, Unit unit) {
-            this.value = value;
-            this.unit = unit;
-        }
-
-        /**
-         * Converts value to category base unit.
-         * Special handling for Fahrenheit to Celsius conversion.
-         */
-        private double convertToBase() {
-            if (unit == Unit.FAHRENHEIT) {
-                return (value - 32) * 5 / 9;
-            }
-            return value * unit.factor;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Quantity that = (Quantity) o;
-            if (this.unit.category != that.unit.category) return false;
-
-            double v1 = convertToBase();
-            double v2 = that.convertToBase();
-            return Double.compare(Math.round(v1 * 100.0) / 100.0, Math.round(v2 * 100.0) / 100.0) == 0;
-        }
-
-        /**
-         * Adds two quantities. Addition is only allowed for additive categories.
-         */
-        public Quantity add(Quantity that, Unit target) {
-            if (this.unit.category == Category.TEMPERATURE) {
-                throw new IllegalArgumentException("Temperature addition is not physically meaningful.");
-            }
-            if (this.unit.category != that.unit.category || this.unit.category != target.category) {
-                throw new IllegalArgumentException("Category mismatch");
-            }
-            double totalBase = this.convertToBase() + that.convertToBase();
-            return new Quantity(Math.round((totalBase / target.factor) * 100.0) / 100.0, target);
-        }
-
-        @Override
-        public String toString() { return value + " " + unit; }
+    public Quantity(double value, U unit) { //
+        this.value = value;
+        this.unit = unit;
     }
 
+    public double getValue() { return value; } //
+    public U getUnit() { return unit; } //
+
+    public double convertTo(U targetUnit) { //
+        double base = unit.convertToBaseUnit(this.value); //
+        return targetUnit.convertFromBaseUnit(base); //
+    }
+
+    public Quantity<U> add(Quantity<U> other, U targetUnit) { //
+        double totalBase = unit.convertToBaseUnit(this.value) + 
+                           other.unit.convertToBaseUnit(other.value); //
+        return new Quantity<>(targetUnit.convertFromBaseUnit(totalBase), targetUnit); //
+    }
+
+    @Override
+    public boolean equals(Object obj) { //
+        if (this == obj) return true;
+        if (!(obj instanceof Quantity)) return false;
+        Quantity<?> that = (Quantity<?>) obj;
+        
+        // Safety check: only compare if they belong to the same Enum type
+        if (!this.unit.getClass().equals(that.unit.getClass())) return false; //
+
+        double thisBase = unit.convertToBaseUnit(this.value); //
+        double thatBase = ((IMeasurable)that.unit).convertToBaseUnit(that.value); //
+        return Math.abs(thisBase - thatBase) < 0.01; //
+    }
+}
+
+// --- MAIN APPLICATION ---
+
+public class QuantityMeasurementApp {
     public static void main(String[] args) {
-        System.out.println("=== UC9: Weight & Temperature Support ===");
-
-        // 1. Weight Equality: 1 KG == 1000 Grams
-        Quantity kg = new Quantity(1.0, Quantity.Unit.KG);
-        Quantity g = new Quantity(1000.0, Quantity.Unit.GRAMS);
-        System.out.println("1 KG == 1000 Grams: " + kg.equals(g));
-
-        // 2. Weight Addition: 1 Tonne + 1000 Grams = 1001 KG
-        Quantity tonne = new Quantity(1.0, Quantity.Unit.TONNE);
-        System.out.println("1 Tonne + 1000g in KG: " + tonne.add(g, Quantity.Unit.KG));
-
-        // 3. Temperature: 212 F == 100 C
-        Quantity fahr = new Quantity(212.0, Quantity.Unit.FAHRENHEIT);
-        Quantity cel = new Quantity(100.0, Quantity.Unit.CELSIUS);
-        System.out.println("212 F == 100 C: " + fahr.equals(cel));
-
-        // 4. Temperature: 32 F == 0 C
-        System.out.println("32 F == 0 C: " + new Quantity(32, Quantity.Unit.FAHRENHEIT).equals(new Quantity(0, Quantity.Unit.CELSIUS)));
+        // matches tests in image_f3639e.jpg
+        Quantity<VolumeUnit> liters = new Quantity<>(1.0, VolumeUnit.LITER);
+        Quantity<VolumeUnit> ml = new Quantity<>(1000.0, VolumeUnit.MILLILITER);
+        
+        System.out.println("Are 1L and 1000ml equal? " + liters.equals(ml)); //
+        
+        Quantity<LengthUnit> feet = new Quantity<>(1.0, LengthUnit.FEET);
+        Quantity<LengthUnit> inches = new Quantity<>(12.0, LengthUnit.INCHES);
+        System.out.println("Are 1ft and 12in equal? " + feet.equals(inches)); //
     }
 }
