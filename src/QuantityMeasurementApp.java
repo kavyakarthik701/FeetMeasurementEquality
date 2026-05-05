@@ -3,109 +3,237 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * UC9 - QuantityMeasurementApp: Full Multi-Category Support
- * Supports: Length, Volume, Weight, and Temperature.
- * Handles additive units (Length/Volume/Weight) and non-additive offset units (Temperature).
+ * IMeasurable interface defines the contract for measurable units.
+ *
+ * This interface serves as a common abstraction for different types of measurements
+ * such as weight and length units. Classes implementing this interface should provide
+ * functionality to handle unit conversions and comparisons between different measurement types.
+ *
+ * @see WeightUnit
+ * @see LengthUnit
+ */
+interface IMeasurable {
+    /**
+     * Get the conversion factor to the base unit (grams or inches).
+     *
+     * @return the conversion factor
+     */
+    double getConversionFactor();
+
+    /**
+     * Convert value from this unit to base unit. New responsibility added.
+     * <p> This method is used internally for all conversions. It ensures consistent
+     * rounding to two decimal places across all operations.
+     *
+     * @param value the value in this unit
+     * @return the value converted to base unit and then rounded to two decimal places
+     */
+    double convertToBaseUnit(double value);
+
+    /**
+     * Convert value from base unit to this unit. New responsibility added.
+     * <p> This method is used internally for all conversions. It ensures consistent
+     * rounding to two decimal places across all operations.
+     *
+     * @param baseValue the value in base unit
+     * @return the value converted to this unit and then rounded to two decimal places
+     */
+    double convertFromBaseUnit(double baseValue);
+}
+
+// --- LengthUnit Enum ---
+
+/**
+ * LengthUnit.java
+ * The LengthUnit enumeration implements IMeasurable interface and
+ * provides methods for unit conversion. It defines various units of length
+ * measurement along with their conversion factors relative to a base unit (inches).
+ */
+enum LengthUnit implements IMeasurable {
+    FEET(12.0),
+    INCHES(1.0),
+    YARDS(36.0),
+    CENTIMETERS(0.393701);
+
+    private final double conversionFactor;
+
+    LengthUnit(double conversionFactor) {
+        this.conversionFactor = conversionFactor;
+    }
+
+    @Override
+    public double getConversionFactor() {
+        return conversionFactor;
+    }
+
+    @Override
+    public double convertToBaseUnit(double value) {
+        return Math.round((value * conversionFactor) * 100.0) / 100.0;
+    }
+
+    @Override
+    public double convertFromBaseUnit(double baseValue) {
+        return Math.round((baseValue / conversionFactor) * 100.0) / 100.0;
+    }
+}
+
+// --- WeightUnit Enum ---
+
+/**
+ * WeightUnit.java
+ * The WeightUnit enumeration implements IMeasurable interface and provides
+ * methods for unit conversion. It defines various units of weight measurement
+ * along with their conversion factors relative to a base unit (grams).
+ */
+enum WeightUnit implements IMeasurable {
+    MILLIGRAM(0.001),
+    GRAM(1.0),
+    KILOGRAM(1000.0),
+    POUND(453.592),
+    TONNE(1000000.0);
+
+    private final double conversionFactor;
+
+    WeightUnit(double conversionFactor) {
+        this.conversionFactor = conversionFactor;
+    }
+
+    @Override
+    public double getConversionFactor() {
+        return conversionFactor;
+    }
+
+    @Override
+    public double convertToBaseUnit(double value) {
+        return Math.round((value * conversionFactor) * 100.0) / 100.0;
+    }
+
+    @Override
+    public double convertFromBaseUnit(double baseValue) {
+        return Math.round((baseValue / conversionFactor) * 100.0) / 100.0;
+    }
+}
+
+// --- Quantity Class ---
+
+/**
+ * Represents a quantity with a numeric value and a unit of measurement.
+ * This class encapsulates a numeric value along with an associated measurable unit.
+ *
+ * @author Developer
+ * @version 1.0
+ */
+class Quantity<U extends IMeasurable> {
+    private double value;
+    private U unit;
+
+    public Quantity(double value, U unit) {
+        this.value = value;
+        this.unit = unit;
+    }
+
+    public double getValue() {
+        return value;
+    }
+
+    public U getUnit() {
+        return unit;
+    }
+
+    /**
+     * Converts this Quantity to the specified target unit.
+     */
+    public <T extends IMeasurable> double convertTo(T targetUnit) {
+        double baseValue = unit.convertToBaseUnit(this.value);
+        return targetUnit.convertFromBaseUnit(baseValue);
+    }
+
+    /**
+     * Adds this Quantity to another Quantity of the same unit type.
+     */
+    public Quantity<U> add(Quantity<U> other) {
+        double baseSum = this.unit.convertToBaseUnit(this.value) + 
+                         other.unit.convertToBaseUnit(other.value);
+        double finalValue = this.unit.convertFromBaseUnit(baseSum);
+        return new Quantity<>(finalValue, this.unit);
+    }
+
+    /**
+     * Adds this Quantity to another Quantity and returns the result in a target unit.
+     */
+    public Quantity<U> add(Quantity<U> other, U targetUnit) {
+        double baseSum = this.unit.convertToBaseUnit(this.value) + 
+                         other.unit.convertToBaseUnit(other.value);
+        double finalValue = targetUnit.convertFromBaseUnit(baseSum);
+        return new Quantity<>(finalValue, targetUnit);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Quantity)) return false;
+        Quantity<?> other = (Quantity<?>) obj;
+        
+        double thisBase = unit.convertToBaseUnit(this.value);
+        double otherBase = other.unit.convertToBaseUnit(other.value);
+        
+        return Math.abs(thisBase - otherBase) < 0.01;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(unit.convertToBaseUnit(value));
+    }
+}
+
+// --- Main Application Class ---
+
+/**
+ * QuantityMeasurementApp - UC10 - Generic Quantity Class with Unit Interface
+ * for Multi-Category Support.
  */
 public class QuantityMeasurementApp {
 
-    public static class Quantity {
-        private final double value;
-        private final Unit unit;
+    public static <U extends IMeasurable> boolean demonstrateEquality(Quantity<U> q1, Quantity<U> q2) {
+        return q1.equals(q2);
+    }
 
-        /**
-         * Enum defining all supported units, their base factors, and categories.
-         * For Temperature, factors are used for ratio, and base is Celsius.
-         */
-        public enum Unit {
-            // LENGTH (Base: Inches)
-            FEET(12.0, Category.LENGTH), INCHES(1.0, Category.LENGTH), 
-            YARDS(36.0, Category.LENGTH), CM(0.4537, Category.LENGTH),
+    public static <U extends IMeasurable> Quantity<U> demonstrateConversion(Quantity<U> quantity, U targetUnit) {
+        double newValue = quantity.convertTo(targetUnit);
+        return new Quantity<>(newValue, targetUnit);
+    }
 
-            // VOLUME (Base: Litres)
-            GALLON(3.78, Category.VOLUME), LITRE(1.0, Category.VOLUME), ML(0.001, Category.VOLUME),
+    public static <U extends IMeasurable> Quantity<U> demonstrateAddition(Quantity<U> q1, Quantity<U> q2) {
+        return q1.add(q2);
+    }
 
-            // WEIGHT (Base: Grams)
-            KG(1000.0, Category.WEIGHT), GRAMS(1.0, Category.WEIGHT), TONNE(1000000.0, Category.WEIGHT),
-
-            // TEMPERATURE (Base: Celsius)
-            FAHRENHEIT(1.0, Category.TEMPERATURE), CELSIUS(1.0, Category.TEMPERATURE);
-
-            public final double factor;
-            public final Category category;
-
-            Unit(double factor, Category category) {
-                this.factor = factor;
-                this.category = category;
-            }
-        }
-
-        public enum Category { LENGTH, VOLUME, WEIGHT, TEMPERATURE }
-
-        public Quantity(double value, Unit unit) {
-            this.value = value;
-            this.unit = unit;
-        }
-
-        /**
-         * Converts value to category base unit.
-         * Special handling for Fahrenheit to Celsius conversion.
-         */
-        private double convertToBase() {
-            if (unit == Unit.FAHRENHEIT) {
-                return (value - 32) * 5 / 9;
-            }
-            return value * unit.factor;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            Quantity that = (Quantity) o;
-            if (this.unit.category != that.unit.category) return false;
-
-            double v1 = convertToBase();
-            double v2 = that.convertToBase();
-            return Double.compare(Math.round(v1 * 100.0) / 100.0, Math.round(v2 * 100.0) / 100.0) == 0;
-        }
-
-        /**
-         * Adds two quantities. Addition is only allowed for additive categories.
-         */
-        public Quantity add(Quantity that, Unit target) {
-            if (this.unit.category == Category.TEMPERATURE) {
-                throw new IllegalArgumentException("Temperature addition is not physically meaningful.");
-            }
-            if (this.unit.category != that.unit.category || this.unit.category != target.category) {
-                throw new IllegalArgumentException("Category mismatch");
-            }
-            double totalBase = this.convertToBase() + that.convertToBase();
-            return new Quantity(Math.round((totalBase / target.factor) * 100.0) / 100.0, target);
-        }
-
-        @Override
-        public String toString() { return value + " " + unit; }
+    public static <U extends IMeasurable> Quantity<U> demonstrateAddition(Quantity<U> q1, Quantity<U> q2, U targetUnit) {
+        return q1.add(q2, targetUnit);
     }
 
     public static void main(String[] args) {
-        System.out.println("=== UC9: Weight & Temperature Support ===");
+        // Demonstration equality
+        Quantity<WeightUnit> weightInGrams = new Quantity<>(1000.0, WeightUnit.GRAM);
+        Quantity<WeightUnit> weightInKilograms = new Quantity<>(1.0, WeightUnit.KILOGRAM);
+        boolean areEqual = demonstrateEquality(weightInGrams, weightInKilograms);
+        System.out.println("Are weights equal? " + areEqual);
 
-        // 1. Weight Equality: 1 KG == 1000 Grams
-        Quantity kg = new Quantity(1.0, Quantity.Unit.KG);
-        Quantity g = new Quantity(1000.0, Quantity.Unit.GRAMS);
-        System.out.println("1 KG == 1000 Grams: " + kg.equals(g));
+        // Demonstration conversion
+        Quantity<WeightUnit> convertedWeight = demonstrateConversion(weightInGrams, WeightUnit.KILOGRAM);
+        System.out.println("Converted Weight: " + convertedWeight.getValue() + " " + convertedWeight.getUnit());
 
-        // 2. Weight Addition: 1 Tonne + 1000 Grams = 1001 KG
-        Quantity tonne = new Quantity(1.0, Quantity.Unit.TONNE);
-        System.out.println("1 Tonne + 1000g in KG: " + tonne.add(g, Quantity.Unit.KG));
+        // Demonstration addition (First unit)
+        Quantity<WeightUnit> weightInPounds = new Quantity<>(2.20462, WeightUnit.POUND);
+        Quantity<WeightUnit> sumWeight = demonstrateAddition(weightInKilograms, weightInPounds);
+        System.out.println("Sum Weight: " + sumWeight.getValue() + " " + sumWeight.getUnit());
 
-        // 3. Temperature: 212 F == 100 C
-        Quantity fahr = new Quantity(212.0, Quantity.Unit.FAHRENHEIT);
-        Quantity cel = new Quantity(100.0, Quantity.Unit.CELSIUS);
-        System.out.println("212 F == 100 C: " + fahr.equals(cel));
-
-        // 4. Temperature: 32 F == 0 C
-        System.out.println("32 F == 0 C: " + new Quantity(32, Quantity.Unit.FAHRENHEIT).equals(new Quantity(0, Quantity.Unit.CELSIUS)));
+        // Demonstration addition (Specified unit)
+        Quantity<WeightUnit> sumWeightInGrams = demonstrateAddition(weightInKilograms, weightInPounds, WeightUnit.GRAM);
+        System.out.println("Sum Weight in Grams: " + sumWeightInGrams.getValue() + " " + sumWeightInGrams.getUnit());
+        
+        // Length Example
+        Quantity<LengthUnit> lengthInFeet = new Quantity<>(10.0, LengthUnit.FEET);
+        Quantity<LengthUnit> lengthInInches = new Quantity<>(120.0, LengthUnit.INCHES);
+        System.out.println("Are lengths equal? " + lengthInFeet.equals(lengthInInches));
     }
 }
