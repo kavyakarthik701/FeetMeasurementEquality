@@ -3,110 +3,86 @@ package com.apps.quantitymeasurement;
 import java.util.Objects;
 
 /**
- * IMeasurable interface defines the contract for all measurement units.
- * It ensures that different types of measurements (Length, Weight, Volume) 
- * can be handled by the same generic Quantity class.
+ * Represents a quantity with a numeric value and a unit of measurement.
+ * 
+ * In UC12, the Quantity class has been enhanced to include additional operations
+ * such as subtraction and division.
+ * 1. Subtraction and division, along with improved error handling for incompatible
+ *    units and division by zero scenarios.
+ * 2. The equals method has been overridden to allow for meaningful comparisons between
+ *    Quantity objects based on their converted values in base units.
+ * 3. The toString method has also been overridden to provide a clear string representation
+ *    of the Quantity object.
+ * 
+ * @author Developer
+ * @version 12.0
  */
-interface IMeasurable {
-    double getConversionFactor(); //
-    double convertToBaseUnit(double value); //
-    double convertFromBaseUnit(double baseValue); //
-}
+public class Quantity<U extends IMeasurable> {
+    private double value;
+    private U unit;
 
-// --- UNIT ENUMERATIONS ---
-
-/**
- * Length units based on inches.
- */
-enum LengthUnit implements IMeasurable {
-    FEET(12.0), INCHES(1.0), YARDS(36.0), CENTIMETERS(0.393701); //
-    private final double factor;
-    LengthUnit(double factor) { this.factor = factor; }
-    public double getConversionFactor() { return factor; }
-    public double convertToBaseUnit(double v) { return Math.round((v * factor) * 100.0) / 100.0; } //
-    public double convertFromBaseUnit(double b) { return Math.round((b / factor) * 100.0) / 100.0; } //
-}
-
-/**
- * Weight units based on grams.
- */
-enum WeightUnit implements IMeasurable {
-    MILLIGRAM(0.001), GRAM(1.0), KILOGRAM(1000.0), POUND(453.592), TONNE(1000000.0); //
-    private final double factor;
-    WeightUnit(double factor) { this.factor = factor; }
-    public double getConversionFactor() { return factor; }
-    public double convertToBaseUnit(double v) { return Math.round((v * factor) * 100.0) / 100.0; } //
-    public double convertFromBaseUnit(double b) { return Math.round((b / factor) * 100.0) / 100.0; } //
-}
-
-/**
- * Volume units based on Liters (required for tests in image_f3639e.jpg).
- */
-enum VolumeUnit implements IMeasurable {
-    LITER(1.0), MILLILITER(0.001), GALLON(3.785); 
-    private final double factor;
-    VolumeUnit(double factor) { this.factor = factor; }
-    public double getConversionFactor() { return factor; }
-    public double convertToBaseUnit(double v) { return Math.round((v * factor) * 100.0) / 100.0; }
-    public double convertFromBaseUnit(double b) { return Math.round((b / factor) * 100.0) / 100.0; }
-}
-
-// --- GENERIC QUANTITY CLASS ---
-
-/**
- * The Generic Quantity class prevents cross-type operations.
- * For example, a Quantity<LengthUnit> cannot be compared to a Quantity<WeightUnit>.
- */
-class Quantity<U extends IMeasurable> {
-    private final double value;
-    private final U unit;
-
-    public Quantity(double value, U unit) { //
+    public Quantity(double value, U unit) {
         this.value = value;
         this.unit = unit;
     }
 
-    public double getValue() { return value; } //
-    public U getUnit() { return unit; } //
+    public double getValue() { return value; }
+    public U getUnit() { return unit; }
 
-    public double convertTo(U targetUnit) { //
-        double base = unit.convertToBaseUnit(this.value); //
-        return targetUnit.convertFromBaseUnit(base); //
-    }
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Quantity)) return false;
+        Quantity<?> other = (Quantity<?>) obj;
+        
+        // Ensure units are of the same category before comparing
+        if (!this.unit.getClass().equals(other.unit.getClass())) return false;
 
-    public Quantity<U> add(Quantity<U> other, U targetUnit) { //
-        double totalBase = unit.convertToBaseUnit(this.value) + 
-                           other.unit.convertToBaseUnit(other.value); //
-        return new Quantity<>(targetUnit.convertFromBaseUnit(totalBase), targetUnit); //
+        double thisBaseValue = this.unit.convertToBaseUnit(this.value);
+        double otherBaseValue = ((IMeasurable) other.unit).convertToBaseUnit(other.value);
+        return Math.abs(thisBaseValue - otherBaseValue) < 0.01;
     }
 
     @Override
-    public boolean equals(Object obj) { //
-        if (this == obj) return true;
-        if (!(obj instanceof Quantity)) return false;
-        Quantity<?> that = (Quantity<?>) obj;
-        
-        // Safety check: only compare if they belong to the same Enum type
-        if (!this.unit.getClass().equals(that.unit.getClass())) return false; //
-
-        double thisBase = unit.convertToBaseUnit(this.value); //
-        double thatBase = ((IMeasurable)that.unit).convertToBaseUnit(that.value); //
-        return Math.abs(thisBase - thatBase) < 0.01; //
+    public String toString() {
+        return String.format("%.2f %s", value, unit);
     }
-}
 
-// --- MAIN APPLICATION ---
+    public <T extends IMeasurable> double convertTo(T targetUnit) {
+        double baseValue = unit.convertToBaseUnit(this.value);
+        return targetUnit.convertFromBaseUnit(baseValue);
+    }
 
-public class QuantityMeasurementApp {
-    public static void main(String[] args) {
-        // matches tests in image_f3639e.jpg
-        Quantity<VolumeUnit> liters = new Quantity<>(1.0, VolumeUnit.LITER);
-        Quantity<VolumeUnit> ml = new Quantity<>(1000.0, VolumeUnit.MILLILITER);
+    public Quantity<U> add(Quantity<U> other, U targetUnit) {
+        double sumInBase = this.unit.convertToBaseUnit(this.value) + 
+                           other.unit.convertToBaseUnit(other.value);
+        return new Quantity<>(targetUnit.convertFromBaseUnit(sumInBase), targetUnit);
+    }
+
+    /**
+     * Subtracts this Quantity from another Quantity of the same unit type and 
+     * returns the result in a specified target unit.
+     */
+    public Quantity<U> subtract(Quantity<U> other, U targetUnit) {
+        // Logic: other - this (Subtracting "this" FROM "other")
+        double diffInBase = other.unit.convertToBaseUnit(other.value) - 
+                            this.unit.convertToBaseUnit(this.value);
         
-        System.out.println("Are 1L and 1000ml equal? " + liters.equals(ml)); //
-        
-        Quantity<LengthUnit> feet = new Quantity<>(1.0, LengthUnit.FEET);
-        Quantity<LengthUnit> inches = new Quantity<>(12.0, LengthUnit.INCHES);
-        System.out.println("Are 1ft and 12in equal? " + feet.equals(inches)); //
+        if (diffInBase < 0) {
+            throw new IllegalArgumentException("Subtraction resulted in a negative value.");
+        }
+        return new Quantity<>(targetUnit.convertFromBaseUnit(diffInBase), targetUnit);
+    }
+
+    /**
+     * Divides this Quantity by another Quantity of the same unit type and 
+     * returns the result as a double.
+     */
+    public double divide(Quantity<U> other) {
+        double divisorBase = other.unit.convertToBaseUnit(other.value);
+        if (divisorBase == 0) {
+            throw new ArithmeticException("Division by zero occurs");
+        }
+        return this.unit.convertToBaseUnit(this.value) / divisorBase;
     }
 }
